@@ -12,16 +12,17 @@ var _iconvLite = require('iconv-lite');
 
 var _iconvLite2 = _interopRequireDefault(_iconvLite);
 
-var _requestPromise = require('request-promise');
+var _requestPromiseNative = require('request-promise-native');
 
-var _requestPromise2 = _interopRequireDefault(_requestPromise);
+var _requestPromiseNative2 = _interopRequireDefault(_requestPromiseNative);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var searchConfig = {
+var config = {
     '530p': {
         name: '530p',
-        url: 'http://www.530p.com/s/',
+        searchURL: 'http://www.530p.com/s/',
+        tableURL: 'http://www.530p.com',
         encode: 'GBK'
     }
 };
@@ -30,31 +31,33 @@ var searchTerm = '猫腻';
 
 function SearchTerm(term, _ref) {
     var name = _ref.name,
-        url = _ref.url,
+        searchURL = _ref.searchURL,
         encode = _ref.encode;
 
     console.log("============= Searching =============");
-    var finalURL = url + encodeURIComponent(term);
+    var finalURL = searchURL + encodeURIComponent(term);
     console.log('Running request on ' + finalURL + '......');
     requestContent('search', name, finalURL, encode);
 }
 
 function requestContent(type, site, url, encode) {
-    (0, _request2.default)({
+    var requestConfig = {
         uri: url,
         encoding: null
-    }, function (err, res, html) {
+    };
+    (0, _requestPromiseNative2.default)(requestConfig).then(function (html) {
         console.log("============= Response received =============");
-        if (err) {
-            console.log('Something went wrong - check the internet connection or your request.');
-        } else {
-            var decodedHTML = _iconvLite2.default.decode(html, encode);
-            // console.log(decodedHTML);
-            // Parse the HTML based on specific site and request type
-            if (type === 'search') {
-                ParseResult(site, decodedHTML);
-            }
+        var decodedHTML = _iconvLite2.default.decode(html, encode);
+        console.log(decodedHTML);
+        // Parse the HTML based on specific site and request type
+        if (type === 'search') {
+            ParseResult(site, decodedHTML);
         }
+        if (type === 'content') {
+            return decodedHTML;
+        }
+    }).catch(function (err) {
+        console.log('Something went wrong - check the internet connection or your request.');
     });
 }
 
@@ -70,6 +73,9 @@ function ParseResult(site, html) {
                 var ncLink = $(this).children('.conter2').children('a').attr('href');
                 var author = $(this).children('.conter4').text();
                 var lastUpdated = $(this).children('.conter3').text();
+
+                bookLink = config['530p'].tableURL + bookLink;
+                ncLink = config['530p'].tableURL + ncLink;
                 resultList.push({ title: title, bookLink: bookLink, newestChapter: newestChapter, ncLink: ncLink, author: author, lastUpdated: lastUpdated });
             }
         });
@@ -78,6 +84,21 @@ function ParseResult(site, html) {
     }
 }
 
-function getContentTable(site, bookURL) {}
+function getContentTable(site, bookURL) {
+    if (Object.keys(config).includes(site)) {
+        console.log("Site name is included in the config.");
+    } else {
+        console.log("Site name is NOT included in the config.");
+    }
+    var tableEncode = config[site].encode;
+    var tableHTML = requestContent('content', site, bookURL, tableEncode);
+    console.log("========== Table HTML ==========", tableHTML);
+}
 
-SearchTerm(searchTerm, searchConfig['530p']);
+SearchTerm(searchTerm, config['530p']);
+// .then(booklist => {
+//     console.log('The Book\'s link is:', booklist[0]);
+// })
+// .catch(err => {
+//     console.log('error occured')
+// });
